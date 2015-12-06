@@ -37,7 +37,7 @@ class Action(qgui.QAction):
 
     def __init__(self, name, context):
         qgui.QAction.__init__(self, name, context.parent)
-        self._context = context
+        self.context = context
         self.triggered.connect(self.perform)
 
     def perform(self):

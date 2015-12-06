@@ -28,6 +28,7 @@
 #  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+from PyQt4 import QtGui as qgui
 from qgis.core import QgsMapLayerRegistry
 
 from utils import Action
@@ -45,10 +46,18 @@ class ListAction(Action):
             return allLayer[0]
         return None
 
+    def _getQuery(self):
+        result = qgui.QInputDialog.getText(self.context.parent, u'Wybór stanowisk', u'Warunek wyboru',text='id > 0')
+        if result[1]:
+            return result[0]
+        return None
 
     def perform(self):
         layer = self.getLayer()
-        wgt = table.EntityList(STANOWISKA_TYP, variant=layer.id())
-        wgt.initWidget(self._context)
-        wgt.initData(self._context)
-        self._context.showWidget(wgt)
+        query = self._getQuery()
+        if not query:
+            return
+        wgt = table.EntityList(STANOWISKA_TYP, variant=layer.id(), queryExpr=query)
+        wgt.initWidget(self.context)
+        wgt.initData(self.context)
+        self.context.showWidget(wgt)

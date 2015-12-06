@@ -58,7 +58,6 @@ class EntityListModel(qcore.QAbstractTableModel):
 
     def rowCount(self, index=None, *args, **kwargs):
         size = self.cache.size()
-        print size
         return size
 
     def columnCount(self, index=None, *args, **kwargs):
@@ -77,7 +76,8 @@ class EntityList(qgui.QWidget):
         vlayout = qgui.QVBoxLayout()
         self.setLayout(vlayout)
         self.cache = c2.EntityCache(self._type)
-        self.coordinator = c2.CacheCoordinator(self.cache, context.prepareDataSource(self._type, variant=self._variant))
+        ds = context.prepareDataSource(self._type, variant=self._variant)
+        self.coordinator = c2.CacheCoordinator(self.cache, ds)
         self.model = self._initModel()
         self.table = self._initTable(self.model)
         vlayout.addWidget(self.table)
