@@ -29,43 +29,8 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from functools import partial
-
-from qgis.core import QgsMapLayerRegistry
-
-from actions import ListAction
-from constants import STANOWISKA_TYP
-from c2 import DataSource, Entity
-
-class StanowiskaDs(DataSource):
-
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
-
-    def getAll(self, expression=None):
-        return [Entity(self.etype, id=x, obszar='00-01', nr_azp=str(x)) for x in range(0,10)]
-
-class MiejscowosciDs(DataSource):
-
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
-
-    def getAll(self, expression=None):
-        return None
-
-def getName():
-    return 'Stanowiska'
-
-def initDataSource(etype, qgsLayer):
-    return StanowiskaDs(etype, qgsLayer)
+import connection as conapi
+import liteconnection as litecon
 
 def start(context):
-    subMenu = context.menu.addMenu(getName())
-    subMenu.addAction(ListAction(context))
-    reg = QgsMapLayerRegistry.instance()
-    allLayers = reg.mapLayersByName('stanowiska')
-    for mapLayer in allLayers:
-        layerId = mapLayer.id()
-        context.dataSourceFactory(partial(initDataSource, qgsLayer=mapLayer), STANOWISKA_TYP, variant=layerId)
+    context.registerService(conapi.CONNECTION_FACTORY_CLAZZ, litecon.LiteConnectionFactory(), variant='SPATIALITE' )

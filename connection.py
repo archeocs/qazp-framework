@@ -29,43 +29,58 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from functools import partial
+from contextlib import closing
 
-from qgis.core import QgsMapLayerRegistry
+CONNECTION_FACTORY_CLAZZ = 'connection.ConnectionFactory'
 
-from actions import ListAction
-from constants import STANOWISKA_TYP
-from c2 import DataSource, Entity
+class ConnectionFactory(object):
 
-class StanowiskaDs(DataSource):
+    def createConnection(self, dsUri):
+        raise Exception('Not implemented')
 
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
+class Statement(object):
 
-    def getAll(self, expression=None):
-        return [Entity(self.etype, id=x, obszar='00-01', nr_azp=str(x)) for x in range(0,10)]
+    def __init__(self, sql, pycon):
+        self.sql = sql
+        self.pycon = pycon
 
-class MiejscowosciDs(DataSource):
+    def query(self, params=[], convert=lambda x : x):
+        result = []
+        with closing(self.pycon.cursor()) as rows:
+            rows.execute(self.sql, params)
+            for r in rows.fetchall():
+                result.append(convert(r))
+        return result
 
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
+    def single(self, params=[], convert=lambda x : x):
+        with closing(self.pycon.cursor()) as rows:
+            rows.execute(self.sql, params)
+            return convert(rows.fetchone())
 
-    def getAll(self, expression=None):
-        return None
+    def execute(self, params=[]):
+        with closing(self.pycon.cursor()) as c:
+            c.execute(self.sql, params)
+            return c.rowcount
 
-def getName():
-    return 'Stanowiska'
+class Connection(object):
 
-def initDataSource(etype, qgsLayer):
-    return StanowiskaDs(etype, qgsLayer)
+    def query(self, sql, params=[]):
+        raise Exception('Not implemented abstract method')
 
-def start(context):
-    subMenu = context.menu.addMenu(getName())
-    subMenu.addAction(ListAction(context))
-    reg = QgsMapLayerRegistry.instance()
-    allLayers = reg.mapLayersByName('stanowiska')
-    for mapLayer in allLayers:
-        layerId = mapLayer.id()
-        context.dataSourceFactory(partial(initDataSource, qgsLayer=mapLayer), STANOWISKA_TYP, variant=layerId)
+    def single(self, sql, params=[]):
+        raise Exception('Not implemented abstract method')
+
+    def execute(self, stmt, params=[]):
+        raise Exception('Not implemented abstract method')
+
+    def commit(self):
+        raise Exception('Not implemented abstract method')
+
+    def prepare(self, sql):
+        raise Exception('Not implemented abstract method')
+
+    def rollback(self):
+        raise Exception('Not implemented abstract method')
+
+    def close(self):
+        raise Exception('Not implemented abstract method')

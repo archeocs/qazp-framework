@@ -29,43 +29,40 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from functools import partial
+import connection as qcon
+import sqlite3 as pylite
 
-from qgis.core import QgsMapLayerRegistry
+class LiteConenction(qcon.Connection):
 
-from actions import ListAction
-from constants import STANOWISKA_TYP
-from c2 import DataSource, Entity
+    def __init__(self, dbfile):
+        self.dbfile = dbfile
+        self.pycon = pylite.connect(dbfile)
 
-class StanowiskaDs(DataSource):
+    def commit(self):
+        self.pycon.commit()
 
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
+    def rollback(self):
+        self.pycon.rollback()
 
-    def getAll(self, expression=None):
-        return [Entity(self.etype, id=x, obszar='00-01', nr_azp=str(x)) for x in range(0,10)]
+    def prepare(self, sql):
+        return qcon.Statement(sql, self.pycon)
 
-class MiejscowosciDs(DataSource):
+    def query(self, sql, params=[], convert=lambda x : x):
+        stmt = self.prepare(sql)
+        return stmt.query(params, convert)
 
-    def __init__(self, etype, qgsLayer):
-        self.etype = etype
-        self.layer = qgsLayer
+    def single(self, sql, params=[], convert=lambda x : x):
+        stmt = self.prepare(sql)
+        return stmt.single(params, convert)
 
-    def getAll(self, expression=None):
-        return None
+    def execute(self, sql, params=[]):
+        stmt = self.prepare(sql)
+        return stmt.execute(params)
 
-def getName():
-    return 'Stanowiska'
+    def close(self):
+        self.pycon.close()
 
-def initDataSource(etype, qgsLayer):
-    return StanowiskaDs(etype, qgsLayer)
+class LiteConnectionFactory(qcon.ConnectionFactory):
 
-def start(context):
-    subMenu = context.menu.addMenu(getName())
-    subMenu.addAction(ListAction(context))
-    reg = QgsMapLayerRegistry.instance()
-    allLayers = reg.mapLayersByName('stanowiska')
-    for mapLayer in allLayers:
-        layerId = mapLayer.id()
-        context.dataSourceFactory(partial(initDataSource, qgsLayer=mapLayer), STANOWISKA_TYP, variant=layerId)
+    def createConnection(self, dsUri):
+        return LiteConenction(dsUri.database())

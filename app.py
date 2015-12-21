@@ -30,6 +30,7 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import importlib
+import operator
 from PyQt4 import QtCore as qcore
 from PyQt4 import QtGui as qgui
 
@@ -50,6 +51,7 @@ class BundleContext(object):
         self.menu = None
         self.parent = None
         self.dataSources = {}
+        self.services = {}
 
     def showWidget(self, widget):
         window = self.parent.addSubWindow(widget)
@@ -57,11 +59,24 @@ class BundleContext(object):
         widget.show()
         return window
 
+    def _prepareKey(self, **kwargs):
+        items = sorted(kwargs.iteritems(), key=operator.itemgetter(0))
+        key = []
+        for it in items:
+            key.extend(it)
+        return tuple(key)
+
     def dataSourceFactory(self, dataSourceFactory, etype, variant='default'):
         self.dataSources[(etype.name,variant)] = dataSourceFactory
 
     def prepareDataSource(self, etype, variant='default'):
         return self.dataSources[(etype.name, variant) ](etype)
+
+    def registerService(self, iclazz, impl, **props):
+        self.services[(iclazz, self._prepareKey(**props))] = impl
+
+    def service(self, iclazz, **props):
+        return self.services.get((iclazz, self._prepareKey(**props) ), None)
 
 class Application(qgui.QMainWindow):
 
@@ -72,13 +87,14 @@ class Application(qgui.QMainWindow):
         self._initModules()
 
     def _initModules(self):
+        context = BundleContext()
+        context.parent = self._appArea
+        context.main = self
+        context.menu = self.menuBar()
         with open('modules.txt', 'r') as modList:
             for name in modList.readlines():
                 bundle = importlib.import_module(name.rstrip('\n'))
-                context = BundleContext()
-                context.menu = self.menuBar().addMenu(bundle.getName())
-                context.parent = self._appArea
-                context.main = self
+                #context.menu = self.menuBar().addMenu(bundle.getName())
                 bundle.start(context)
 
 def start(qgis=None, qgsIface=None, guiApp=None):
@@ -91,13 +107,13 @@ def main():
     from sys import argv
     import qgsctx
     qgsctx.initProviders('/usr/lib/qgis/plugins/')
-    suri = qgsctx.liteUri('/home/user/nowa_test.db', 'stanowiska', 'wspolrzedne')
+    suri = qgsctx.liteUri('/home/milosz/Downloads/nowa_test.db', 'stanowiska', 'wspolrzedne')
     qgsctx.addVectorLayer(suri, 'spatialite')
-    turi = qgsctx.liteUri('/home/user/nowa_test.db', 'trasy', 'wspolrzedne')
+    turi = qgsctx.liteUri('/home/milosz/Downloads/nowa_test.db', 'trasy', 'wspolrzedne')
     qgsctx.addVectorLayer(turi, 'spatialite')
-    muri = qgsctx.liteUri('/home/user/nowa_test.db', 'miejsca', 'wspolrzedne')
+    muri = qgsctx.liteUri('/home/milosz/Downloads/nowa_test.db', 'miejsca', 'wspolrzedne')
     qgsctx.addVectorLayer(muri, 'spatialite')
-    zuri = qgsctx.liteUri('/home/user/nowa_test.db', 'zdjecia_lotnicze', 'wspolrzedne')
+    zuri = qgsctx.liteUri('/home/milosz/Downloads/nowa_test.db', 'zdjecia_lotnicze', 'wspolrzedne')
     qgsctx.addVectorLayer(zuri, 'spatialite')
     qif = qgsctx.Iface()
     app = qgui.QApplication(argv)
