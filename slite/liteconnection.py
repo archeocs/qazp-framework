@@ -65,4 +65,4 @@ class LiteConenction(qcon.Connection):
 class LiteConnectionFactory(qcon.ConnectionFactory):
 
     def createConnection(self, dsUri):
-        return LiteConenction(dsUri.database())
+        return LiteConenction(str(dsUri.database()))

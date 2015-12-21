@@ -33,7 +33,7 @@ from qgis.core import QgsMapLayerRegistry
 
 from utils import Action
 from widgets import table
-from constants import STANOWISKA_TYP
+from constants import STANOWISKA_TYP, MIEJSCOWOSI_TYP
 
 class ListAction(Action):
 
@@ -61,3 +61,31 @@ class ListAction(Action):
         wgt.initWidget(self.context)
         wgt.initData(self.context)
         self.context.showWidget(wgt)
+
+class WykazAction(Action):
+
+    def __init__(self, label, context, etype, query, parent=None):
+        Action.__init__(self, label, context)
+        self.etype = etype
+        self.query = query
+
+    def getLayer(self):
+        allLayer = QgsMapLayerRegistry.instance().mapLayersByName('stanowiska')
+        if allLayer:
+            return allLayer[0]
+        return None
+
+    def perform(self):
+        layer = self.getLayer()
+        wgt = table.EntityList(self.etype, variant=layer.id(), queryExpr=self.query)
+        wgt.initWidget(self.context)
+        wgt.initData(self.context)
+        self.context.showWidget(wgt)
+
+def miejscowosci(context, parent=None):
+    return WykazAction(u'Miejscowści',
+                       context,
+                       MIEJSCOWOSI_TYP,
+                       'SELECT id, nazwa FROM miejscowosci ORDER BY nazwa',
+                       parent=parent
+                       )

@@ -30,11 +30,13 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from functools import partial
+from contextlib import closing
+from qgis.core import QgsMapLayerRegistry, QgsDataSourceURI
 
-from qgis.core import QgsMapLayerRegistry
+import connection as conapi
 
-from actions import ListAction
-from constants import STANOWISKA_TYP
+from actions import ListAction, miejscowosci
+from constants import STANOWISKA_TYP, MIEJSCOWOSI_TYP
 from c2 import DataSource, Entity
 
 class StanowiskaDs(DataSource):
@@ -46,14 +48,21 @@ class StanowiskaDs(DataSource):
     def getAll(self, expression=None):
         return [Entity(self.etype, id=x, obszar='00-01', nr_azp=str(x)) for x in range(0,10)]
 
-class MiejscowosciDs(DataSource):
+class WykazDs(DataSource):
 
-    def __init__(self, etype, qgsLayer):
+    def __init__(self, etype, qgsLayer, context):
         self.etype = etype
         self.layer = qgsLayer
+        self.context = context
 
     def getAll(self, expression=None):
-        return None
+        def convert(row):
+            return Entity(self.etype, id=row[0], nazwa=row[1])
+        provider = self.layer.dataProvider()
+        uri = QgsDataSourceURI(provider.dataSourceUri())
+        factory = self.context.service(conapi.CONNECTION_FACTORY_CLAZZ, variant=str(provider.name()).upper())
+        with closing(factory.createConnection(uri)) as con:
+            return con.query(expression, [], convert)
 
 def getName():
     return 'Stanowiska'
@@ -61,11 +70,16 @@ def getName():
 def initDataSource(etype, qgsLayer):
     return StanowiskaDs(etype, qgsLayer)
 
+def wykazDs(etype, qgsLayer, context):
+    return WykazDs(etype, qgsLayer, context)
+
 def start(context):
     subMenu = context.menu.addMenu(getName())
     subMenu.addAction(ListAction(context))
+    subMenu.addAction(miejscowosci(context))
     reg = QgsMapLayerRegistry.instance()
     allLayers = reg.mapLayersByName('stanowiska')
     for mapLayer in allLayers:
         layerId = mapLayer.id()
         context.dataSourceFactory(partial(initDataSource, qgsLayer=mapLayer), STANOWISKA_TYP, variant=layerId)
+        context.dataSourceFactory(partial(wykazDs, qgsLayer=mapLayer, context=context), MIEJSCOWOSI_TYP, variant=layerId)
