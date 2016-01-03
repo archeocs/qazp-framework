@@ -31,5 +31,5 @@
 
 from c2 import EntityType, EntityAttr
 
-STANOWISKA_TYP = EntityType('stanowiska', [EntityAttr('id', True), EntityAttr('obszar'), EntityAttr('nr_azp')])
-MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', True), EntityAttr('nazwa')])
+STANOWISKA_TYP = EntityType('stanowiska', [EntityAttr('id', primaryKey=True), EntityAttr('obszar'), EntityAttr('nr_azp')])
+MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', primaryKey=True), EntityAttr('nazwa')])

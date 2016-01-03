@@ -45,6 +45,15 @@ class NullException(Exception):
     def __init__(self, msg):
         Exception.__init__(self, msg)
 
+
+def _prepareKey(**kwargs):
+    items = sorted(kwargs.iteritems(), key=operator.itemgetter(0))
+    key = []
+    for it in items:
+        key.extend(it)
+    return tuple(key)
+
+
 class BundleContext(object):
 
     def __init__(self):
@@ -59,13 +68,6 @@ class BundleContext(object):
         widget.show()
         return window
 
-    def _prepareKey(self, **kwargs):
-        items = sorted(kwargs.iteritems(), key=operator.itemgetter(0))
-        key = []
-        for it in items:
-            key.extend(it)
-        return tuple(key)
-
     def dataSourceFactory(self, dataSourceFactory, etype, variant='default'):
         self.dataSources[(etype.name,variant)] = dataSourceFactory
 
@@ -73,10 +75,10 @@ class BundleContext(object):
         return self.dataSources[(etype.name, variant) ](etype)
 
     def registerService(self, iclazz, impl, **props):
-        self.services[(iclazz, self._prepareKey(**props))] = impl
+        self.services[(iclazz, _prepareKey(**props))] = impl
 
     def service(self, iclazz, **props):
-        return self.services.get((iclazz, self._prepareKey(**props) ), None)
+        return self.services.get((iclazz, _prepareKey(**props) ), None)
 
 class Application(qgui.QMainWindow):
 
@@ -94,7 +96,6 @@ class Application(qgui.QMainWindow):
         with open('modules.txt', 'r') as modList:
             for name in modList.readlines():
                 bundle = importlib.import_module(name.rstrip('\n'))
-                #context.menu = self.menuBar().addMenu(bundle.getName())
                 bundle.start(context)
 
 def start(qgis=None, qgsIface=None, guiApp=None):

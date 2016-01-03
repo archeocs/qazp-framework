@@ -41,9 +41,24 @@ class EntityListModel(qcore.QAbstractTableModel):
         self.etype = etype
         self.cache = cache
         self.attrNames = self.etype.getAttrNames()
+        self.cache.changed.connect(self._cacheChanged)
 
     def _indexTuple(self, index):
         return index.row(), self.attrNames[index.column()]
+
+    def _resetInsert(self, start, end):
+        self.beginInsertRows(qcore.QModelIndex(), start, end)
+        self.endInsertRows()
+
+    def _resetRemove(self, start, end):
+        self.beginRemoveRows(qcore.QModelIndex(), start, end)
+        self.endRemoveRows()
+
+    def _cacheChanged(self, start, end, op):
+        if op == 'I':
+            self._resetInsert(start, end)
+        elif op == 'R':
+            self._resetRemove(start, end)
 
     def data(self, index, role=None):
         if role != qcore.Qt.DisplayRole:
@@ -51,9 +66,15 @@ class EntityListModel(qcore.QAbstractTableModel):
         objIndex = self._indexTuple(index)
         return self.cache.getByIndex(objIndex[0])[objIndex[1]]
 
-    def headerData(self, column, orientation, role=None):
-        if orientation == qcore.Qt.Horizontal and role == qcore.Qt.DisplayRole:
-            return qcore.QString(self.attrNames[column])
+    def headerData(self, index, orientation, role=None):
+        if role == qcore.Qt.DisplayRole:
+            if orientation == qcore.Qt.Horizontal:
+                return qcore.QString(self.attrNames[index])
+            elif orientation == qcore.Qt.Vertical:
+                state = self.cache.entityState(index)
+                if state != c2.STATE_COMMITED:
+                    return u'*'
+                return u' '
         return None
 
     def rowCount(self, index=None, *args, **kwargs):
@@ -81,6 +102,44 @@ class EntityList(qgui.QWidget):
         self.model = self._initModel()
         self.table = self._initTable(self.model)
         vlayout.addWidget(self.table)
+        buttons = self.initActions()
+        vlayout.addWidget(buttons)
+
+    def addAction(self):
+        addDlg = EntityInputDialog(self._type)
+        result = addDlg.exec_()
+        if result == EntityInputDialog.Accepted:
+            ent = addDlg.getEntity()
+            #self.model.beginResetModel()
+            self.cache.addEntities([ent])
+            #self.model.endResetModel()
+
+    def saveAction(self):
+        self.coordinator.save()
+        self.initData(None)
+
+    def deleteAction(self):
+        pass
+
+    def editAction(self):
+        pass
+
+    def refreshAction(self):
+        pass
+
+    def _performAction(self, btn):
+        aname = str(btn.objectName())
+        if hasattr(self, aname):
+            getattr(self, aname)()
+
+    def initActions(self):
+        btnBar = qgui.QDialogButtonBox()
+        addBtn = btnBar.addButton('Add', qgui.QDialogButtonBox.ActionRole)
+        addBtn.setObjectName('addAction')
+        addBtn = btnBar.addButton('Save', qgui.QDialogButtonBox.ActionRole)
+        addBtn.setObjectName('saveAction')
+        btnBar.clicked.connect(self._performAction)
+        return btnBar
 
     def initData(self, context):
         self.model.beginResetModel()
@@ -94,3 +153,57 @@ class EntityList(qgui.QWidget):
 
     def _initModel(self):
         return EntityListModel(self._type, self.cache)
+
+def lineEdit(name):
+    widget = qgui.QLineEdit()
+    widget.setObjectName(name)
+    return widget
+
+
+class EntityInputDialog(qgui.QDialog):
+
+    MODE_EDIT = 1
+    MODE_ADD = 2
+
+    def __init__(self, etype, entity=None, parent=None, flags=0):
+        qgui.QDialog.__init__(self, parent)
+        self.etype = etype
+        self.entity = entity
+        if entity:
+            self.mode = self.MODE_EDIT
+        else:
+            self.mode = self.MODE_ADD
+            self.entity = c2.Entity(self.etype)
+        self.initWidget()
+
+    def formWidget(self):
+        widget = qgui.QWidget()
+        widget.setObjectName('formWidget')
+        form = qgui.QFormLayout()
+        widget.setLayout(form)
+        for a in self.etype.attrs:
+            if a.dataType == c2.STRING:
+                form.addRow(a.label, lineEdit(a.name))
+        return widget
+
+    def initWidget(self):
+        vlayout = qgui.QVBoxLayout()
+        self.setLayout(vlayout)
+        form = self.formWidget()
+        vlayout.addWidget(form)
+        btnBox = qgui.QDialogButtonBox(qgui.QDialogButtonBox.Save | qgui.QDialogButtonBox.Cancel)
+        btnBox.rejected.connect(self.reject)
+        btnBox.accepted.connect(self.accept)
+        vlayout.addWidget(btnBox)
+
+    def getTextValue(self, name):
+        wgt = self.findChild(qgui.QLineEdit, name)
+        if wgt:
+            return str(wgt.text())
+        return None
+
+    def getEntity(self):
+        for a in self.etype.attrs:
+            txt = self.getTextValue(a.name)
+            self.entity[a.name] = txt
+        return self.entity

@@ -29,10 +29,14 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from collections import OrderedDict
-
 from copy import deepcopy
 
 from PyQt4 import QtCore as qcore
+
+INT = 1
+FLOAT = 2
+STRING = 3
+OBJECT = 4
 
 class EntityType(object):
 
@@ -84,13 +88,20 @@ class EntityType(object):
 
 class EntityAttr(object):
 
-    def __init__(self, name, primaryKey=False, inList=True):
+    def __init__(self, name, **props):
         self.name = name
-        self.primaryKey = primaryKey
-        self.inList = inList
+        self.primaryKey = props.get('primaryKey', False)
+        self.inList = props.get('inList', True)
+        self.auto = props.get('auto', False)
+        self.dataType = props.get('dataType', STRING)
+        self.label = props.get('label', self.name)
 
     def clone(self):
-        return EntityAttr(self.name, self.primaryKey, self.inList)
+        return EntityAttr(self.name, primaryKey=self.primaryKey,
+                          inList=self.inList,
+                          auto=self.auto,
+                          dataType=self.dataType,
+                          label=self.label)
 
     def __eq__(self, other):
         if not isinstance(other, EntityAttr):
@@ -212,7 +223,7 @@ class EntityCache(qcore.QObject):
     def size(self, efilter=lambda x : not x.deleted):
         return len([e for e in self._filter(efilter)])
 
-    changed = qcore.pyqtSignal(int, int, name='changed')
+    changed = qcore.pyqtSignal(int, int, str, name='changed')
 
     def remove(self, *args):
         ent = self.items.get(args)
@@ -223,20 +234,17 @@ class EntityCache(qcore.QObject):
             elif ent.state == STATE_NEW:
                 self.itemsIndex.remove(args)
                 del self.items[args]
-            self.changed.emit(idx, idx+1)
+            self.changed.emit(idx, idx+1, 'R')
 
     def clear(self):
-        itSize = len(self.items)
         self.items.clear()
         self.itemsIndex = []
-        self.changed.emit(0, itSize)
 
     def setEntities(self, entities):
         start = len(self.items)
         for e in entities:
             self.items[e.primaryKey] = CacheItem(e)
             self.itemsIndex.append(e.primaryKey)
-        self.changed.emit(start, len(self.items))
 
     def addEntities(self, entities):
         start = len(self.items)
@@ -245,8 +253,12 @@ class EntityCache(qcore.QObject):
                 raise Exception('Duplicated entity '+e.primaryKey)
             self.items[e.primaryKey] = CacheItem(e, state = STATE_NEW)
             self.itemsIndex.append(e.primaryKey)
-        self.changed.emit(start, len(self.items))
+        self.changed.emit(start, len(self.items)-1, 'I')
 
+    def entityState(self, index):
+        if 0 <= index < len(self.items):
+            return self.items[self.itemsIndex[index]].state
+        return -1
 
 class DataSource(object):
 

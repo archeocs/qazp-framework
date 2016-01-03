@@ -55,14 +55,37 @@ class WykazDs(DataSource):
         self.layer = qgsLayer
         self.context = context
 
-    def getAll(self, expression=None):
-        def convert(row):
-            return Entity(self.etype, id=row[0], nazwa=row[1])
+    def _connection(self):
         provider = self.layer.dataProvider()
         uri = QgsDataSourceURI(provider.dataSourceUri())
         factory = self.context.service(conapi.CONNECTION_FACTORY_CLAZZ, variant=str(provider.name()).upper())
-        with closing(factory.createConnection(uri)) as con:
+        return factory.createConnection(uri)
+
+    def _maxId(self, con):
+        stmt = 'select coalesce(max(id) + 1, 1) from %s' % self.etype.name
+        row = con.single(stmt)
+        return row[0]
+
+    def getAll(self, expression=None):
+        def convert(row):
+            return Entity(self.etype, id=row[0], nazwa=row[1])
+        with closing(self._connection()) as con:
             return con.query(expression, [], convert)
+
+    def create(self, entities):
+        stmt = 'insert into %s(id, nazwa, start) ' \
+               'values(:wid, :wnazwa, substr(:wnazwa, 1, 2))' % self.etype.name
+        with closing(self._connection()) as con:
+            ps = con.prepare(stmt)
+            nextId = self._maxId(con)
+            for e in entities:
+                ps.execute(params = {
+                        'wid' : nextId,
+                        'wnazwa': e['nazwa']
+                    }
+                )
+                nextId += 1
+            con.commit()
 
 def getName():
     return 'Stanowiska'
