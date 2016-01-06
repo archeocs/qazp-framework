@@ -225,16 +225,21 @@ class EntityCache(qcore.QObject):
 
     changed = qcore.pyqtSignal(int, int, str, name='changed')
 
+    changeStart = qcore.pyqtSignal(int, int, str, name='changeStart')
+    changeEnd = qcore.pyqtSignal(int, int, str, name='changeEnd')
+
     def remove(self, *args):
-        ent = self.items.get(args)
-        idx = self.itemsIndex.index(args)
+        ent = self.items.get(*args)
+        idx = self.itemsIndex.index(*args)
         if ent:
-            if ent.state == STATE_DELETED:
+            self.changeStart.emit(idx, idx, 'R')
+            if ent.state == STATE_NEW:
+                self.itemsIndex.remove(*args)
+                del self.items[args[0]]
+            elif ent.state != STATE_DELETED:
+                self.itemsIndex.remove(*args)
                 ent.state = STATE_DELETED
-            elif ent.state == STATE_NEW:
-                self.itemsIndex.remove(args)
-                del self.items[args]
-            self.changed.emit(idx, idx+1, 'R')
+            self.changeEnd.emit(idx, idx, 'R')
 
     def clear(self):
         self.items.clear()
@@ -248,12 +253,13 @@ class EntityCache(qcore.QObject):
 
     def addEntities(self, entities):
         start = len(self.items)
+        self.changeStart.emit(start, start+len(entities)-1, 'I')
         for e in entities:
             if self.items.has_key(e.primaryKey):
                 raise Exception('Duplicated entity '+e.primaryKey)
             self.items[e.primaryKey] = CacheItem(e, state = STATE_NEW)
             self.itemsIndex.append(e.primaryKey)
-        self.changed.emit(start, len(self.items)-1, 'I')
+        self.changeEnd.emit(start, len(entities)-1, 'I')
 
     def entityState(self, index):
         if 0 <= index < len(self.items):

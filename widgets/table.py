@@ -41,24 +41,29 @@ class EntityListModel(qcore.QAbstractTableModel):
         self.etype = etype
         self.cache = cache
         self.attrNames = self.etype.getAttrNames()
-        self.cache.changed.connect(self._cacheChanged)
+        self.cache.changeStart.connect(self._cacheChangeStart)
+        self.cache.changeEnd.connect(self._cacheChangeEnd)
 
     def _indexTuple(self, index):
         return index.row(), self.attrNames[index.column()]
-
-    def _resetInsert(self, start, end):
-        self.beginInsertRows(qcore.QModelIndex(), start, end)
-        self.endInsertRows()
-
-    def _resetRemove(self, start, end):
-        self.beginRemoveRows(qcore.QModelIndex(), start, end)
-        self.endRemoveRows()
 
     def _cacheChanged(self, start, end, op):
         if op == 'I':
             self._resetInsert(start, end)
         elif op == 'R':
             self._resetRemove(start, end)
+
+    def _cacheChangeStart(self, start, end, op):
+        if op == 'I':
+            self.beginInsertRows(qcore.QModelIndex(), start, end)
+        elif op == 'R':
+            self.beginRemoveRows(qcore.QModelIndex(), start, end)
+
+    def _cacheChangeEnd(self, start, end, op):
+        if op == 'I':
+            self.endInsertRows()
+        elif op == 'R':
+            self.endRemoveRows()
 
     def data(self, index, role=None):
         if role != qcore.Qt.DisplayRole:
@@ -105,27 +110,32 @@ class EntityList(qgui.QWidget):
         buttons = self.initActions()
         vlayout.addWidget(buttons)
 
+    def getSelectedEntities(self):
+        smodel = self.table.selectionModel()
+        selection = smodel.selectedIndexes()
+        return [self.cache.getByIndex(s.row()) for s in selection]
+
     def addAction(self):
         addDlg = EntityInputDialog(self._type)
         result = addDlg.exec_()
         if result == EntityInputDialog.Accepted:
             ent = addDlg.getEntity()
-            #self.model.beginResetModel()
             self.cache.addEntities([ent])
-            #self.model.endResetModel()
 
     def saveAction(self):
         self.coordinator.save()
         self.initData(None)
 
     def deleteAction(self):
-        pass
+        for ent in  self.getSelectedEntities():
+            self.cache.remove(ent.primaryKey)
+
 
     def editAction(self):
         pass
 
     def refreshAction(self):
-        pass
+        self.initData(None)
 
     def _performAction(self, btn):
         aname = str(btn.objectName())
@@ -138,6 +148,12 @@ class EntityList(qgui.QWidget):
         addBtn.setObjectName('addAction')
         addBtn = btnBar.addButton('Save', qgui.QDialogButtonBox.ActionRole)
         addBtn.setObjectName('saveAction')
+        addBtn = btnBar.addButton('Delete', qgui.QDialogButtonBox.ActionRole)
+        addBtn.setObjectName('deleteAction')
+        addBtn = btnBar.addButton('Edit', qgui.QDialogButtonBox.ActionRole)
+        addBtn.setObjectName('editAction')
+        addBtn = btnBar.addButton('Refresh', qgui.QDialogButtonBox.ActionRole)
+        addBtn.setObjectName('refreshAction')
         btnBar.clicked.connect(self._performAction)
         return btnBar
 
