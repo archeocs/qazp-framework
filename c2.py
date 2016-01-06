@@ -130,8 +130,8 @@ class Entity(qcore.QObject):
             raise Exception('No such property '+str(key))
         old = self.properties.get(key, None)
         self.properties[key] = value
-        if old != value:
-            self.changed.emit(key, old, value)
+        #if old != value:
+        #    self.changed.emit(key, old, value)
 
     def __getitem__(self, key):
         if not self.etype.hasAttr(key):
@@ -168,7 +168,7 @@ class Entity(qcore.QObject):
             self._pk = tuple([self[k] for k in self.etype.primaryKey])
         return self._pk
 
-    changed = qcore.pyqtSignal(str, object, object, name='changed')
+    #changed = qcore.pyqtSignal(str, object, object, name='changed')
 
 STATE_NEW = 1
 STATE_COMMITED = 2
@@ -180,12 +180,13 @@ class CacheItem(object):
     def __init__(self, entity, state=STATE_COMMITED):
         self.entity = entity.clone()
         self.original = entity.clone()
-        self.entity.changed.connect(self.update)
+        #self.entity.changed.connect(self.update)
         self.state = state
 
-    def update(self, key, old, new):
-        self.original[key] = new
-        self.state = STATE_UPDATED
+    def update(self, key, new):
+        if self.original[key] != new:
+            self.original[key] = new
+            self.state = STATE_UPDATED
 
     @property
     def deleted(self):
@@ -223,10 +224,9 @@ class EntityCache(qcore.QObject):
     def size(self, efilter=lambda x : not x.deleted):
         return len([e for e in self._filter(efilter)])
 
-    changed = qcore.pyqtSignal(int, int, str, name='changed')
-
     changeStart = qcore.pyqtSignal(int, int, str, name='changeStart')
     changeEnd = qcore.pyqtSignal(int, int, str, name='changeEnd')
+    entityUpdated = qcore.pyqtSignal(int, name='entityUpdated')
 
     def remove(self, *args):
         ent = self.items.get(*args)
@@ -246,7 +246,6 @@ class EntityCache(qcore.QObject):
         self.itemsIndex = []
 
     def setEntities(self, entities):
-        start = len(self.items)
         for e in entities:
             self.items[e.primaryKey] = CacheItem(e)
             self.itemsIndex.append(e.primaryKey)
@@ -265,6 +264,14 @@ class EntityCache(qcore.QObject):
         if 0 <= index < len(self.items):
             return self.items[self.itemsIndex[index]].state
         return -1
+
+    def updateEntity(self, entity):
+        item = self.items.get(entity.primaryKey)
+        for (k, v) in entity.props.iteritems():
+            item.update(k, v)
+        index = self.itemsIndex.index(entity.primaryKey)
+        self.entityUpdated.emit(index)
+
 
 class DataSource(object):
 

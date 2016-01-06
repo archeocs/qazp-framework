@@ -43,15 +43,10 @@ class EntityListModel(qcore.QAbstractTableModel):
         self.attrNames = self.etype.getAttrNames()
         self.cache.changeStart.connect(self._cacheChangeStart)
         self.cache.changeEnd.connect(self._cacheChangeEnd)
+        self.cache.entityUpdated.connect(self._entityUpdated)
 
     def _indexTuple(self, index):
         return index.row(), self.attrNames[index.column()]
-
-    def _cacheChanged(self, start, end, op):
-        if op == 'I':
-            self._resetInsert(start, end)
-        elif op == 'R':
-            self._resetRemove(start, end)
 
     def _cacheChangeStart(self, start, end, op):
         if op == 'I':
@@ -64,6 +59,11 @@ class EntityListModel(qcore.QAbstractTableModel):
             self.endInsertRows()
         elif op == 'R':
             self.endRemoveRows()
+
+    def _entityUpdated(self, index):
+        cfirst = self.index(index, 0)
+        clast = self.index(index, len(self.attrNames)-1)
+        self.dataChanged.emit(cfirst, clast)
 
     def data(self, index, role=None):
         if role != qcore.Qt.DisplayRole:
@@ -132,7 +132,15 @@ class EntityList(qgui.QWidget):
 
 
     def editAction(self):
-        pass
+        selected = self.getSelectedEntities()
+        if not selected:
+            return
+        first = selected[0]
+        editDlg = EntityInputDialog(self._type, first)
+        result = editDlg.exec_()
+        if result == EntityInputDialog.Accepted:
+            ent = editDlg.getEntity()
+            self.cache.updateEntity(ent)
 
     def refreshAction(self):
         self.initData(None)
@@ -175,6 +183,10 @@ def lineEdit(name):
     widget.setObjectName(name)
     return widget
 
+def spinBox(name):
+    widget = qgui.QSpinBox()
+    widget.setObjectName(name)
+    return widget
 
 class EntityInputDialog(qgui.QDialog):
 
@@ -191,6 +203,16 @@ class EntityInputDialog(qgui.QDialog):
             self.mode = self.MODE_ADD
             self.entity = c2.Entity(self.etype)
         self.initWidget()
+        self.initValues()
+
+    def initValues(self):
+        if self.mode == self.MODE_EDIT:
+            for a in self.etype.attrs:
+                if a.dataType == c2.STRING:
+                    self.setTextValue(a.name, self.entity[a.name])
+                elif a.dataType == c2.INT:
+                    self.setNumValue(a.name, self.entity[a.name])
+
 
     def formWidget(self):
         widget = qgui.QWidget()
@@ -200,6 +222,8 @@ class EntityInputDialog(qgui.QDialog):
         for a in self.etype.attrs:
             if a.dataType == c2.STRING:
                 form.addRow(a.label, lineEdit(a.name))
+            elif a.dataType == c2.INT:
+                form.addRow(a.label, spinBox(a.name))
         return widget
 
     def initWidget(self):
@@ -215,11 +239,31 @@ class EntityInputDialog(qgui.QDialog):
     def getTextValue(self, name):
         wgt = self.findChild(qgui.QLineEdit, name)
         if wgt:
-            return str(wgt.text())
+            return unicode(wgt.text())
         return None
+
+    def setTextValue(self, name, txt):
+        wgt = self.findChild(qgui.QLineEdit, name)
+        if wgt:
+            wgt.setText(unicode(txt))
+
+    def getNumValue(self, name):
+        wgt = self.findChild(qgui.QSpinBox, name)
+        if wgt:
+            return wgt.value()
+        return None
+
+    def setNumValue(self, name, txt):
+        wgt = self.findChild(qgui.QSpinBox, name)
+        if wgt:
+            wgt.setValue(txt)
+
 
     def getEntity(self):
         for a in self.etype.attrs:
-            txt = self.getTextValue(a.name)
+            if a.dataType == c2.STRING:
+                txt = self.getTextValue(a.name)
+            elif a.dataType == c2.INT:
+                txt = self.getNumValue(a.name)
             self.entity[a.name] = txt
         return self.entity

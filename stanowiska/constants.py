@@ -29,7 +29,7 @@
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from c2 import EntityType, EntityAttr
+from c2 import EntityType, EntityAttr, INT
 
 STANOWISKA_TYP = EntityType('stanowiska', [EntityAttr('id', primaryKey=True), EntityAttr('obszar'), EntityAttr('nr_azp')])
-MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', primaryKey=True), EntityAttr('nazwa')])
+MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', primaryKey=True, dataType=INT), EntityAttr('nazwa')])
