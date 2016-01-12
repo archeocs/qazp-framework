@@ -87,6 +87,27 @@ class WykazDs(DataSource):
                 nextId += 1
             con.commit()
 
+    def delete(self, entities):
+        stmt = 'delete from %s where id = ?' % self.etype.name
+        with closing(self._connection()) as con:
+            ps = con.prepare(stmt)
+            for e in entities:
+                ps.execute(params=[e['id']])
+            con.commit()
+
+    def update(self, entities):
+        stmt = 'update %s set nazwa = :wnazwa, start=substr(:wnazwa, 1, 2) ' \
+               'where id = :wid' % self.etype.name
+        with closing(self._connection()) as con:
+            ps = con.prepare(stmt)
+            for e in entities:
+                rows = ps.execute(params={
+                    'wid':e['id'],
+                    'wnazwa':e['nazwa']
+                    }
+                )
+            con.commit()
+
 def getName():
     return 'Stanowiska'
 
