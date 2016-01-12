@@ -92,7 +92,7 @@ class EntityAttr(object):
         self.name = name
         self.primaryKey = props.get('primaryKey', False)
         self.inList = props.get('inList', True)
-        self.auto = props.get('auto', False)
+        self.auto = props.get('auto', self.primaryKey)
         self.dataType = props.get('dataType', STRING)
         self.label = props.get('label', self.name)
 

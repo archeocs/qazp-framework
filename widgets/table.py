@@ -40,7 +40,7 @@ class EntityListModel(qcore.QAbstractTableModel):
         qcore.QAbstractItemModel.__init__(self)
         self.etype = etype
         self.cache = cache
-        self.attrNames = self.etype.getAttrNames()
+        self.attrNames = [a.name for a in self.etype.attrs if a.inList]
         self.cache.changeStart.connect(self._cacheChangeStart)
         self.cache.changeEnd.connect(self._cacheChangeEnd)
         self.cache.entityUpdated.connect(self._entityUpdated)
@@ -87,7 +87,7 @@ class EntityListModel(qcore.QAbstractTableModel):
         return size
 
     def columnCount(self, index=None, *args, **kwargs):
-        return len(self.etype.attrs)
+        return len(self.attrNames)
 
 class EntityList(qgui.QWidget):
 
@@ -221,9 +221,12 @@ class EntityInputDialog(qgui.QDialog):
         widget.setLayout(form)
         for a in self.etype.attrs:
             if a.dataType == c2.STRING:
-                form.addRow(a.label, lineEdit(a.name))
+                wgt = lineEdit(a.name)
             elif a.dataType == c2.INT:
-                form.addRow(a.label, spinBox(a.name))
+                wgt = spinBox(a.name)
+            if a.primaryKey and (self.MODE_EDIT or self.MODE_ADD and a.auto):
+                wgt.setReadOnly(True)
+            form.addRow(a.label, wgt)
         return widget
 
     def initWidget(self):

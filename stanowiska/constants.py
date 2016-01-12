@@ -32,4 +32,4 @@
 from c2 import EntityType, EntityAttr, INT
 
 STANOWISKA_TYP = EntityType('stanowiska', [EntityAttr('id', primaryKey=True), EntityAttr('obszar'), EntityAttr('nr_azp')])
-MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', primaryKey=True, dataType=INT), EntityAttr('nazwa')])
+MIEJSCOWOSI_TYP = EntityType('miejscowosci', [EntityAttr('id', primaryKey=True, dataType=INT, inList=False), EntityAttr('nazwa')])

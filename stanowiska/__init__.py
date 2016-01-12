@@ -101,7 +101,7 @@ class WykazDs(DataSource):
         with closing(self._connection()) as con:
             ps = con.prepare(stmt)
             for e in entities:
-                rows = ps.execute(params={
+                ps.execute(params={
                     'wid':e['id'],
                     'wnazwa':e['nazwa']
                     }
